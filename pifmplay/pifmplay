@@ -1,0 +1,102 @@
+#!/bin/sh
+
+# Written by Bhargava Ganti
+# Play with it as you will.
+# usage:
+# sudo sh fmplay.sh "/path/to/folder/with/mp3/files/" frequency
+# examples:
+# sudo sh fmplay.sh "../sounds/Daft punk/Daft Punk - One More Time.mp3" 91.3
+
+# Variables:
+# if there is a second parameter, use it as frequency instead.
+if [ $# -eq 2 ]; then
+  frequency=$2
+else
+  # Default frequency, you can change it if you want
+  frequency=97.5
+fi
+
+# saving the folderpath for easier use
+folderpath=`pwd`;
+# echo "you are in folder $folderpath";
+
+# the folder pifmplay is in. (the folder the script runs from)
+pifmplayfolder=$(dirname $0);
+
+# echo "Broadcast Frequency = $frequency";
+# this is what pifmplay is asked to play
+play=$1;
+
+# Lots of different ways to play files here...
+playwav() {
+	playmp3ffmpeg "$1" $2	
+}
+playm4a() {
+	# lol, you can use ffmpeg for m4a-2-wav :), sox doen't like m4a tho :(
+	playmp3ffmpeg "$1" $2
+}
+
+playmp3ffmpeg() {
+  ffmpeg -i "$1" -f s16le -ar 22.05k -ac 1 - | sudo $pifmplayfolder/pifm - $2
+}
+
+playmp3sox() {
+  sox -v .9 -t mp3 "$1" -t wav --input-buffer 80000 -r 22050 -c 1 - | sudo $pifmplayfolder/pifm - $2
+}
+
+playmp3() {
+  playmp3sox "$1" $2
+}
+
+playfile() {
+	echo "PiFMPlaying: file $1, frequency $2"
+	# add filetype validation here...
+
+	if echo "$1" | grep -q '.wav$'; then
+        	playwav "$1" $2
+    	elif echo "$1" | grep -q '.mp3$'; then
+		playmp3 "$1" $2
+	elif echo "$1" | grep -q '.m4a$'; then
+		playm4a "$1" $2
+	else
+		echo "Uhm, yeah. I probably can't play that, but i will try"
+		playmp3ffmpeg "$1" $2
+	fi
+	#if [ $file = "*.mp3" ]; then
+	#	playmp3 "$1" $2
+	#elif [ $file = "*.m4a" ]; then
+	#	# its a mpeg4 audio file
+	#	playm4a "$1" $2	
+	#elif [ $file = "*.wav" ];then
+	#	# its a wav play it!
+	#	playwav "$1" $2
+	#else
+	#	#WTF ^^??
+	#	echo "Uhm, yeah. I probably can't play that, but i will try"
+	#	playmp3ffmpeg "$1" $2
+	#fi
+}
+
+# method to loop through all elements in a folder, then try to play it
+playfolder() {
+	# could and should be recursive, but meh.
+	#this should play all the files in the folder
+	for file in $1/*;
+	do
+	{
+		playit "$file" $2
+	}
+	done
+}
+
+playit() {
+	if [ -d "$1" ]; then
+		playfolder "$1" $2
+	elif [ -f "$1" ]; then
+		playfile "$1" $2
+	else
+		echo "PiFMPlay cant play that, sorry :("
+	fi
+}
+
+	playit "$play" $frequency;
